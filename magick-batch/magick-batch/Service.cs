@@ -3,6 +3,7 @@ using System;
 using System.Configuration;
 using System.IO;
 using System.Threading;
+using Serilog;
 
 namespace magick_batch
 {
@@ -13,13 +14,21 @@ namespace magick_batch
             _sourcePath = ConfigurationManager.AppSettings["SourcePath"];
             _targetPath = ConfigurationManager.AppSettings["TargetPath"];
 
+            Log.Logger = new LoggerConfiguration()
+                .WriteTo.Console()
+                // Writes to project folder's /bin/Debug/ directory
+                .WriteTo.File("./magick-batch-log.txt", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
             if (!Directory.Exists(_sourcePath))
             {
-                Console.WriteLine("_sourcePath: " + _sourcePath + " does not exist.");
+                Log.Error("_sourcePath: " + _sourcePath + " does not exist.");
+                Stop();
             }
             if (!Directory.Exists(_targetPath))
             {
-                Console.WriteLine("_targetPath: " + _targetPath + " does not exist.");
+                Log.Error("_targetPath: " + _targetPath + " does not exist.");
+                Stop();
             }
         }
 
@@ -50,8 +59,11 @@ namespace magick_batch
 
             if (_thread.IsAlive && _thread != null)
             {
+                // Kill the application.
+                Environment.Exit(1);
+
                 // Kill the thread.
-                _thread.Abort();
+                //_thread.Abort();
             }
             _thread = null;
         }
@@ -112,11 +124,12 @@ namespace magick_batch
                     magik.Write(Path.Combine(_targetPath, newFileName));
                 }
 
-                Console.WriteLine("Created " + newFileName);
+                Log.Information("Created " + newFileName);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Created error: " + ex.StackTrace);
+                Log.Error("Error during OnCreated. Error Message: \n" + ex.Message + "\n Stack Trace: \n" + ex.StackTrace);
+                Stop();
             }
         }
 
@@ -131,11 +144,12 @@ namespace magick_batch
                     magik.Write(Path.Combine(_targetPath, newFileName));
                 }
 
-                Console.WriteLine("Changed " + newFileName);
+                Log.Information("Changed " + newFileName);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Changed error: " + ex.StackTrace);
+                Log.Error("Error during OnChange. Error Message: \n" + ex.Message + "\n Stack Trace: \n" + ex.StackTrace);
+                Stop();
             }
         }
 
@@ -147,11 +161,12 @@ namespace magick_batch
 
                 File.Delete(Path.Combine(_targetPath, fileName));
 
-                Console.WriteLine("Deleted " + fileName);
+                Log.Information("Deleted " + fileName);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Deleted error: " + ex.StackTrace);
+                Log.Error("Error during OnDeleted. Error Message: \n" + ex.Message + "\n Stack Trace: \n" + ex.StackTrace);
+                Stop();
             }
         }
 
@@ -164,11 +179,12 @@ namespace magick_batch
 
                 File.Move(Path.Combine(_targetPath, oldName), Path.Combine(_targetPath, newName));
 
-                Console.WriteLine("Renamed " + oldName + " to " + newName);
+                Log.Information("Renamed " + oldName + " to " + newName);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Renamed error: " + ex.StackTrace);
+                Log.Error("Error during OnRenamed. Error Message: \n" + ex.Message + "\n Stack Trace: \n" + ex.StackTrace);
+                Stop();
             }
         }
     }
